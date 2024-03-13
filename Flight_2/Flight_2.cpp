@@ -9,18 +9,18 @@
 
 #pragma comment(lib, "ws2_32.lib")
 
-std::string filename = "katl-kefd-B737-700.txt";
+std::string filename = "Telem_2023_3_12 14_56_40.txt";
 
 using namespace std;
 
 typedef struct {
     int flight_id_length;
     string flight_id;
-	int data_length;
+    int data_length;
 }HeadPacket;
 
 typedef struct {
-	string data;
+    string data;
 } FlightData;
 
 char* SerializedData(int& size, HeadPacket head_packet, FlightData flight_data)
@@ -30,7 +30,7 @@ char* SerializedData(int& size, HeadPacket head_packet, FlightData flight_data)
     char* buffer = new char[size];
     memcpy_s(buffer, size, &head_packet.flight_id_length, sizeof(int));
     memcpy(buffer + sizeof(int), head_packet.flight_id.c_str(), head_packet.flight_id.length());
-    memcpy(buffer + sizeof(int) + head_packet.flight_id.length(),& head_packet.data_length, sizeof(int));
+    memcpy(buffer + sizeof(int) + head_packet.flight_id.length(), &head_packet.data_length, sizeof(int));
     memcpy(buffer + sizeof(int) + head_packet.flight_id.length() + sizeof(int), flight_data.data.c_str(), flight_data.data.length());
 
     return buffer;
@@ -46,7 +46,7 @@ string extractUserID(const string& filename) {
 }
 
 int main() {
-    //starts Winsock DLLs
+    cout << "Flight connect to Flight Station..." << endl;
     WSADATA wsaData;
     if ((WSAStartup(MAKEWORD(2, 2), &wsaData)) != 0) {
         return 0;
@@ -79,10 +79,10 @@ int main() {
         WSACleanup();
         return 4;
     }
-
     string line;
     int line_count = 0;
     int size = 0;
+    cout << "Flight connect to Flight Station success!" << endl;
     while (getline(file, line)) {
         HeadPacket head_packet;
         FlightData flight_data;
@@ -102,6 +102,7 @@ int main() {
         flight_data.data = line;
         char* buffer = SerializedData(size, head_packet, flight_data);
         send(ClientSocket, buffer, size, 0);
+        cout << "Flight send data to Flight Station success!" << endl;
         this_thread::sleep_for(chrono::seconds(1));
         line_count++;
     }

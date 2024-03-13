@@ -1,4 +1,3 @@
-// Server.cpp
 #include <iostream>
 #include <vector>
 #include <thread>
@@ -40,7 +39,6 @@ struct FlightData_Extract {
 // Vector to store flight data for each client
 unordered_map<string, vector<FlightData_Extract>> clientFlightData;
 
-
 FlightData DeserializeData(char* buffer, int size)
 {
     HeadPacket head_packet;
@@ -68,21 +66,37 @@ FlightData_Extract extractData(const string& data) {
 }
 
 // Function to save final average fuel consumption
-bool saveFinalAverageFuelConsumption(const string& filename, double avgFuelConsumption, string flight_date_start, string flight_date_end) {
+bool saveFinalAverageFuelConsumption(const string& filename, double avgFuelConsumption, string flight_date_start, string flight_date_end, bool end_flight) {
     try {
-        ofstream file(filename, ios::app);
-        if (!file.is_open()) {
-            // File opened failed
-            return false;
+        if (end_flight)
+        {
+            ofstream file(filename, ios::app);
+            if (!file.is_open()) {
+                // File opened failed
+                return false;
+            }
+            // Write data to the top of the file
+            file.seekp(0, ios::beg);
+            file << "Flight Dates: " << flight_date_start << " - " << flight_date_end << " - Final average fuel consumption: " << avgFuelConsumption << endl;
+            file.close();
+            return true;
         }
-        // Write data to the top of the file
-        file.seekp(0, ios::beg);
-        file << "Flight Dates: " << flight_date_start << " - " << flight_date_end << " - Final average fuel consumption: " << avgFuelConsumption << endl;
-        file.close();
-        return true;
+        else
+        {
+            ofstream file(filename, ios::app);
+            if (!file.is_open()) {
+                // File opened failed
+                return false;
+            }
+            // Write data to the top of the file
+            file.seekp(0, ios::beg);
+            file << "Data Dates Recorded: " << flight_date_end << " - Fuel consumption: " << avgFuelConsumption << endl;
+            file.close();
+            return true;
+        }
+
     }
     catch (const std::exception&) {
-        // Exception occurred
         return false;
     }
 }
@@ -97,7 +111,7 @@ void handleClient(SOCKET clientSocket) {
     string flight_date_start;
     string flight_date_end;
     double previous_fuel = 0;
-
+    double AverageFuelConsumption = 0;
     while (true) {
         char buffer[1024];
         memset(buffer, 0, sizeof(buffer));
@@ -106,13 +120,17 @@ void handleClient(SOCKET clientSocket) {
             cout << "Client disconnected" << endl;
             break;
         }
-        cout << "Client: " << flight_id << " connected" << endl;
         FlightData flight_data = DeserializeData(buffer, bytesReceived);
+        if (flight_id.empty()) {
+			cout << "Strange flight ID: " << flight_data.flight_id << " just connected and send first data record!" << endl;
+		}
+		else {
+            cout << "Flight: " << flight_id << " connected and update the data" << endl;
+        }
         flight_id = flight_data.flight_id;
         FlightData_Extract data = extractData(flight_data.data);
         lock_guard<mutex> lock(mtx);
         clientFlightData[flight_data.flight_id].push_back(data);
-        // cv.notify_one();
         if (line_count == 0) {
             flight_id = flight_data.flight_id;
             flight_date_start = data.time;
@@ -125,9 +143,19 @@ void handleClient(SOCKET clientSocket) {
             previous_fuel = data.fuelRemaining;
         }
         line_count++;
+        AverageFuelConsumption = Flight_Consumption / (line_count + 1);
+        string filename = flight_id + ".txt";
+        bool isSaved = saveFinalAverageFuelConsumption(filename, AverageFuelConsumption, flight_date_start, flight_date_end, false);
+        if (isSaved) {
+            cout << "Fuel consumption of flight: " << flight_id << " Upadated, Value: " << AverageFuelConsumption << endl;
+        }
+        else {
+            cout << "Failed to save final average of flight: " << flight_id << " fuel consumption" << endl;
+        }
     }
-    double AverageFuelConsumption = Flight_Consumption / line_count;
-    bool isSaved = saveFinalAverageFuelConsumption(flight_id, AverageFuelConsumption, flight_date_start, flight_date_end);
+    AverageFuelConsumption = Flight_Consumption / line_count;
+    string filename = flight_id + ".txt";
+    bool isSaved = saveFinalAverageFuelConsumption(filename, AverageFuelConsumption, flight_date_start, flight_date_end, true);
     if (isSaved) {
         cout << "Final average of flight: " << flight_id << " fuel consumption saved to file" << endl;
     }
@@ -138,9 +166,7 @@ void handleClient(SOCKET clientSocket) {
     closesocket(clientSocket);
 }
 
-int main() {
-    // Initialize Winsock
-    //starts Winsock DLLs		
+int main() {	
     WSADATA wsaData;
     if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0)
         return 0;
@@ -172,7 +198,7 @@ int main() {
     }
 
     // Accept connections
-    cout << "Server started. Waiting for clients..." << endl;
+    cout << "Flight Station started. Waiting for flights connect..." << endl;
     sockaddr_in client;
     int clientSize = sizeof(client);
     while (true) {
