@@ -153,9 +153,9 @@ void handleClient(SOCKET clientSocket) {
             cout << "Failed to save final average of flight: " << flight_id << " fuel consumption" << endl;
         }
     }
-    AverageFuelConsumption = Flight_Consumption / line_count;
+    double AverageFuelConsumption_ = Flight_Consumption / line_count;
     string filename = flight_id + ".txt";
-    bool isSaved = saveFinalAverageFuelConsumption(filename, AverageFuelConsumption, flight_date_start, flight_date_end, true);
+    bool isSaved = saveFinalAverageFuelConsumption(filename, AverageFuelConsumption_, flight_date_start, flight_date_end, true);
     if (isSaved) {
         cout << "Final average of flight: " << flight_id << " fuel consumption saved to file" << endl;
     }
