@@ -9,62 +9,63 @@
 
 #pragma comment(lib, "ws2_32.lib")
 
-std::string filename = "katl-kefd-B737-700.txt";
-
 using namespace std;
 
 typedef struct {
     int flight_id_length;
     string flight_id;
-	int data_length;
-}HeadPacket;
+    int data_length;
+} HeadPacket;
 
 typedef struct {
-	string data;
+    string data;
 } FlightData;
 
-char* SerializedData(int& size, HeadPacket head_packet, FlightData flight_data)
-{
+char* SerializedData(int& size, HeadPacket head_packet, FlightData flight_data) {
     size = sizeof(head_packet.flight_id_length) + head_packet.flight_id.length() + sizeof(head_packet.data_length) + flight_data.data.length();
 
     char* buffer = new char[size];
     memcpy_s(buffer, size, &head_packet.flight_id_length, sizeof(int));
     memcpy(buffer + sizeof(int), head_packet.flight_id.c_str(), head_packet.flight_id.length());
-    memcpy(buffer + sizeof(int) + head_packet.flight_id.length(),& head_packet.data_length, sizeof(int));
+    memcpy(buffer + sizeof(int) + head_packet.flight_id.length(), &head_packet.data_length, sizeof(int));
     memcpy(buffer + sizeof(int) + head_packet.flight_id.length() + sizeof(int), flight_data.data.c_str(), flight_data.data.length());
 
     return buffer;
 }
 
 string extractUserID(const string& filename) {
-    size_t pos = filename.find(".txt");
+    size_t pos = filename.find_last_of("\\/");
     if (pos != string::npos) {
-        // Extract the substring before ".txt"
-        return filename.substr(0, pos);
+        // Extract the filename without path
+        string nameOnly = filename.substr(pos + 1);
+        pos = nameOnly.find(".txt");
+        if (pos != string::npos) {
+            // Extract the substring before ".txt"
+            return nameOnly.substr(0, pos);
+        }
     }
-    return filename;
+    return filename; // Default case, though ideally should not occur
 }
 
 int main() {
-    //starts Winsock DLLs
+    // Use an absolute path for the filename
+    std::string filename = "C:\\Users\\gautam\\Desktop\\Project 6\\ClientServerProjectVI\\Client\\katl-kefd-B737-700.txt";
+
     WSADATA wsaData;
     if ((WSAStartup(MAKEWORD(2, 2), &wsaData)) != 0) {
         return 0;
     }
 
-    //initializes socket. SOCK_STREAM: TCP
-    SOCKET ClientSocket;
-    ClientSocket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+    SOCKET ClientSocket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
     if (ClientSocket == INVALID_SOCKET) {
         WSACleanup();
         return 0;
     }
 
-    //Connect socket to specified server
     sockaddr_in SvrAddr;
-    SvrAddr.sin_family = AF_INET;						//Address family type itnernet
-    SvrAddr.sin_port = htons(27000);				    //port (host to network conversion)
-    SvrAddr.sin_addr.s_addr = inet_addr("127.0.0.1");   //IP address
+    SvrAddr.sin_family = AF_INET;
+    SvrAddr.sin_port = htons(27000);
+    SvrAddr.sin_addr.s_addr = inet_addr("127.0.0.1");
     if ((connect(ClientSocket, (struct sockaddr*)&SvrAddr, sizeof(SvrAddr))) == SOCKET_ERROR) {
         closesocket(ClientSocket);
         WSACleanup();
@@ -72,14 +73,14 @@ int main() {
     }
 
     ifstream file(filename);
-    string userID = extractUserID(filename);
     if (!file.is_open()) {
-        cerr << "Error opening file" << endl;
+        cerr << "Error opening file: " << filename << endl;
         closesocket(ClientSocket);
         WSACleanup();
         return 4;
     }
 
+    string userID = extractUserID(filename);
     string line;
     int line_count = 0;
     int size = 0;
@@ -88,14 +89,11 @@ int main() {
         FlightData flight_data;
         head_packet.flight_id_length = userID.length();
         head_packet.flight_id = userID;
-        // Check if line contain this pattern "FUEL TOTAL QUANTITY,"
         string pattern = "FUEL TOTAL QUANTITY,";
-        if (line_count == 0)
-        {
+        if (line_count == 0) {
             line = line.substr(pattern.length(), line.length() - pattern.length() - 2);
         }
-        else
-        {
+        else {
             line = line.substr(1, line.length() - 3);
         }
         head_packet.data_length = line.length();
@@ -104,9 +102,9 @@ int main() {
         send(ClientSocket, buffer, size, 0);
         this_thread::sleep_for(chrono::seconds(1));
         line_count++;
+        delete[] buffer; // Don't forget to free the allocated memory
     }
 
-    // Close socket
     closesocket(ClientSocket);
     WSACleanup();
     file.close();

@@ -36,9 +36,6 @@ struct FlightData_Extract {
     }
 };
 
-// Vector to store flight data for each client
-unordered_map<string, vector<FlightData_Extract>> clientFlightData;
-
 FlightData DeserializeData(char* buffer, int size)
 {
     HeadPacket head_packet;
@@ -130,7 +127,6 @@ void handleClient(SOCKET clientSocket) {
         flight_id = flight_data.flight_id;
         FlightData_Extract data = extractData(flight_data.data);
         lock_guard<mutex> lock(mtx);
-        clientFlightData[flight_data.flight_id].push_back(data);
         if (line_count == 0) {
             flight_id = flight_data.flight_id;
             flight_date_start = data.time;
@@ -162,7 +158,6 @@ void handleClient(SOCKET clientSocket) {
     else {
         cout << "Failed to save final average of flight: " << flight_id << " fuel consumption" << endl;
     }
-    clientFlightData.erase(flight_id);
     closesocket(clientSocket);
 }
 
