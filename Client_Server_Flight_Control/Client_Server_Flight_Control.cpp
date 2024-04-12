@@ -9,6 +9,7 @@
 #include <cstring>
 #include <winsock2.h>
 #include <unordered_map>
+#include <ws2tcpip.h>
 #pragma comment(lib, "ws2_32.lib")
 
 using namespace std;
@@ -177,7 +178,13 @@ int main() {
     //binds socket to address
     sockaddr_in SvrAddr;
     SvrAddr.sin_family = AF_INET;
-    SvrAddr.sin_addr.s_addr = INADDR_ANY;
+    // Convert IP address to binary form
+    if (InetPton(AF_INET, TEXT("192.168.56.1"), &SvrAddr.sin_addr) != 1) {
+        closesocket(ServerSocket);
+        WSACleanup();
+        return 1;
+    }
+
     SvrAddr.sin_port = htons(27000);
     if (bind(ServerSocket, (struct sockaddr*)&SvrAddr, sizeof(SvrAddr)) == SOCKET_ERROR)
     {
@@ -186,10 +193,10 @@ int main() {
         return 0;
     }
     //listen on a socket
-    if (listen(ServerSocket, 1) == SOCKET_ERROR) {
+    if (listen(ServerSocket, SOMAXCONN) == SOCKET_ERROR) {
         closesocket(ServerSocket);
         WSACleanup();
-        return 0;
+        return 1;
     }
 
     // Accept connections

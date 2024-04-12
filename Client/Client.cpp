@@ -6,10 +6,13 @@
 #include <winsock2.h>
 #include <thread>
 #include <chrono>
+#include <ws2tcpip.h>
+#include <filesystem>
 
 #pragma comment(lib, "ws2_32.lib")
 
 using namespace std;
+string __file__name__ = "katl-kefd-B737-700.txt";
 
 typedef struct {
     int flight_id_length;
@@ -47,9 +50,14 @@ string extractUserID(const string& filename) {
     return filename; // Default case, though ideally should not occur
 }
 
+string RetrieveCurrentDirectory(const std::string& filename) {
+    std::filesystem::path cwd = std::filesystem::current_path() / filename;
+    return cwd.string();
+}
+
 int main() {
     // Use an absolute path for the filename
-    std::string filename = "C:\\Users\\gautam\\Desktop\\Project 6\\ClientServerProjectVI\\Client\\katl-kefd-B737-700.txt";
+    std::string filename = RetrieveCurrentDirectory(__file__name__);
 
     WSADATA wsaData;
     if ((WSAStartup(MAKEWORD(2, 2), &wsaData)) != 0) {
@@ -65,11 +73,16 @@ int main() {
     sockaddr_in SvrAddr;
     SvrAddr.sin_family = AF_INET;
     SvrAddr.sin_port = htons(27000);
-    SvrAddr.sin_addr.s_addr = inet_addr("127.0.0.1");
-    if ((connect(ClientSocket, (struct sockaddr*)&SvrAddr, sizeof(SvrAddr))) == SOCKET_ERROR) {
+    if (InetPton(AF_INET, TEXT("192.168.56.1"), &SvrAddr.sin_addr) != 1) {
         closesocket(ClientSocket);
         WSACleanup();
-        return 0;
+        return 1;
+    }
+
+    if (connect(ClientSocket, (struct sockaddr*)&SvrAddr, sizeof(SvrAddr)) == SOCKET_ERROR) {
+        closesocket(ClientSocket);
+        WSACleanup();
+        return 1;
     }
 
     ifstream file(filename);
